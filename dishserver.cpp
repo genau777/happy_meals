@@ -31,9 +31,16 @@ void DishServer::slotServerRead(){
     while (clientSocket -> bytesAvailable() > 0) {
         QByteArray data = clientSocket->readAll();
         QString request = QString::fromUtf8(data).trimmed();
-        QString ingredients = parseRequest(request);
-        QString result = findDish(ingredients);
 
+		qDebug() << "Отправленные пользователем ингредиенты:" << request;
+		
+		// парс
+		QString ingredients = parseRequest(request);
+        
+		// ищем блюдо
+		QString result = findDish(ingredients);
+		
+		// ответ
         clientSocket -> write(result.toUtf8() + "\n");
     }
 }
@@ -43,13 +50,13 @@ QString DishServer::parseRequest(QString data) {
 }
 
 QString DishServer::findDish(QString ingredients) {
-    if (ingredients.contains("egg") && ingredients.contains("milk"))
-		return "Found: Omelette";
+    if (ingredients.contains("яйцо") && ingredients.contains("молоко"))
+		return "Найдено: Омлет";
 
-    if (ingredients.contains("potato"))
-		return "Found: Fried Potatoes";
+    if (ingredients.contains("картошка") || ingredients.contains("картофель"))
+		return "Найдено: Жареная картошка";
 
-    return "No dishes found :(";
+    return "Никаких блюд не найдено :(";
 }
 
 void DishServer::slotClientDisconnected(){
