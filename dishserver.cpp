@@ -55,7 +55,7 @@ QString DishServer::findDish(QString ingredients) {
 void DishServer::slotClientDisconnected(){
     QTcpSocket *clientSocket = qobject_cast<QTcpSocket*>(sender());
     if(clientSocket) {
-        clientSocket->close();:wq
+        clientSocket->close();
         clientSocket->deleteLater();
     }
 }
