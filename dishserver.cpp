@@ -34,7 +34,7 @@ void DishServer::slotServerRead(){
         QString ingredients = parseRequest(request);
         QString result = findDish(ingredients);
 
-        clientSocket->write(result.toUtf8() + "\n");
+        clientSocket -> write(result.toUtf8() + "\n");
     }
 }
 
@@ -46,7 +46,7 @@ QString DishServer::findDish(QString ingredients) {
     if (ingredients.contains("egg") && ingredients.contains("milk"))
 		return "Found: Omelette";
 
-    if (ingredients.contains("картофель"))
+    if (ingredients.contains("potato"))
 		return "Found: Fried Potatoes";
 
     return "No dishes found :(";
@@ -55,7 +55,7 @@ QString DishServer::findDish(QString ingredients) {
 void DishServer::slotClientDisconnected(){
     QTcpSocket *clientSocket = qobject_cast<QTcpSocket*>(sender());
     if(clientSocket) {
-        clientSocket->close();
-        clientSocket->deleteLater();
+        clientSocket -> close();
+        clientSocket -> deleteLater();
     }
 }
