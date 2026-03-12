@@ -1,4 +1,7 @@
 #include "dishserver.h"
+#include "storage.h"
+#include "filters.h"
+
 #include <QDebug>
 #include <QCoreApplication>
 #include <QString>
@@ -49,14 +52,29 @@ QString DishServer::parseRequest(QString data) {
     return data.toLower().trimmed();
 }
 
-QString DishServer::findDish(QString ingredients) {
-    if (ingredients.contains("яйцо") && ingredients.contains("молоко"))
-		return "Найдено: Омлет";
+QString DishServer::findDish(QString inputStr) {
+	Storage storage;
+	FilterManager filterManager;
+	Preferences prefs;
 
-    if (ingredients.contains("картошка") || ingredients.contains("картофель"))
-		return "Найдено: Жареная картошка";
+	// если клиент прислал слово "помидор", добавим его в нелюбимые, чтобы проверить функциональность
+	if (!inputStr.isEmpty()) {
+		Ingredient disliked {QUuid::createUuid(), inputStr, IngredientCategory::OTHER };
+		prefs.dislikedIngredients.append(disliked);
+	}
 
-    return "Никаких блюд не найдено :(";
+	QList<Dish> allDishes = storage.getAllDishes();
+
+	QList<Dish> recommended = filterManager.applyAll(allDishes, prefs);
+
+	if (recommended.isEmpty())
+		return "Нет блюд удовлетворяющих вашим предпочтениям.\n";
+	
+	QString response = "Мы рекомендуем:\n";
+	for (const Dish& dish : recommended) 
+		response += "- " + dish.name + " (" + QString::number(dish.prepTime) + " минут)\n";
+
+	return response;
 }
 
 void DishServer::slotClientDisconnected(){
