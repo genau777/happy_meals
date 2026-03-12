@@ -21,10 +21,15 @@ DishServer::DishServer(QObject *parent) : QObject(parent){
 }
 
 void DishServer::slotNewConnection(){
-    mTcpSocket = mTcpServer->nextPendingConnection();
-    mTcpSocket->write("Hello, I am Dish Chooser Server!\r\n");
-    connect(mTcpSocket, &QTcpSocket::readyRead, this, &DishServer::slotServerRead);
-    connect(mTcpSocket, &QTcpSocket::disconnected, this, &DishServer::slotClientDisconnected);
+	QTcpSocket *clientSocket = mTcpServer -> nextPendingConnection();
+
+	m_clients.append(clientSocket);
+	qDebug() << "New client connect! Total clients:" << m_clients.size();
+
+	clientSocket -> write("Добро пожаловать! Это приложение для подбора блюд HappyMeals.\r\n");
+
+    connect(clientSocket, &QTcpSocket::readyRead, this, &DishServer::slotServerRead);
+    connect(clietnSocket, &QTcpSocket::disconnected, this, &DishServer::slotClientDisconnected);
 }
 
 void DishServer::slotServerRead(){
@@ -79,8 +84,12 @@ QString DishServer::findDish(QString inputStr) {
 
 void DishServer::slotClientDisconnected(){
     QTcpSocket *clientSocket = qobject_cast<QTcpSocket*>(sender());
+
     if(clientSocket) {
-        clientSocket -> close();
+		m_clients.removeOne(clientSocket);
+		qDebug() << "Client disconnected. Total clients:" << m_clients.size();
+		
+		clientSocket -> close();
         clientSocket -> deleteLater();
     }
 }

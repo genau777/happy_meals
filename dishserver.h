@@ -1,6 +1,7 @@
 #ifndef DISHSERVER_H
 #define DISHSERVER_H
 #include <QObject>
+#include <QList>
 #include <QTcpServer>
 #include <QTcpSocket>
 #include <QtNetwork>
@@ -20,7 +21,10 @@ public slots:
 private:
     QString parseRequest(QString data);
     QString findDish(QString ingredients);
-    QTcpServer * mTcpServer;
-    QTcpSocket * mTcpSocket;
+    
+	QTcpServer * mTcpServer;
+    
+	QList<QTcpSocket*> m_clients;
 };
+
 #endif // DISHSERVER_H
