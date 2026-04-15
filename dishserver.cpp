@@ -1,18 +1,23 @@
 #include "dishserver.h"
-#include "storage.h"
-#include "filters.h"
+#include "functionstoserver.h"
+#include "db_singleton.h"
 
 #include <QDebug>
 #include <QCoreApplication>
 #include <QString>
+#include <QVariant>
 
 DishServer::~DishServer() {
+    for(QTcpSocket* socket : m_clients.values()) {
+        socket->close();
+    }
     mTcpServer->close();
 }
 
 DishServer::DishServer(QObject *parent) : QObject(parent){
     mTcpServer = new QTcpServer(this);
     connect(mTcpServer, &QTcpServer::newConnection, this, &DishServer::slotNewConnection);
+    
     if(!mTcpServer->listen(QHostAddress::Any, 33333)){
         qDebug() << "Server is not started";
     } else {
@@ -21,75 +26,51 @@ DishServer::DishServer(QObject *parent) : QObject(parent){
 }
 
 void DishServer::slotNewConnection(){
-	QTcpSocket *clientSocket = mTcpServer -> nextPendingConnection();
+    QTcpSocket *clientSocket = mTcpServer->nextPendingConnection();
+    qintptr desc = clientSocket->socketDescriptor(); // Используем qintptr по UML
+    
+    // Сохраняем дескриптор в свойствах сокета (преобразуем в qulonglong для QVariant)
+    clientSocket->setProperty("descriptor", static_cast<qulonglong>(desc));
+    m_clients.insert(desc, clientSocket);
 
-	m_clients.append(clientSocket);
-	qDebug() << "New client connect! Total clients:" << m_clients.size();
+    qDebug() << "New client connect! Descriptor:" << desc << "Total clients:" << m_clients.size();
 
-	clientSocket -> write("Добро пожаловать! Это приложение для подбора блюд HappyMeals.\r\n");
+    clientSocket->write("Добро пожаловать в HappyMeals! Отправьте команду.\r\n");
 
     connect(clientSocket, &QTcpSocket::readyRead, this, &DishServer::slotServerRead);
-    connect(clietnSocket, &QTcpSocket::disconnected, this, &DishServer::slotClientDisconnected);
+    connect(clientSocket, &QTcpSocket::disconnected, this, &DishServer::slotClientDisconnected);
 }
 
 void DishServer::slotServerRead(){
     QTcpSocket *clientSocket = qobject_cast<QTcpSocket*>(sender());
     if (!clientSocket) return;
 
-    while (clientSocket -> bytesAvailable() > 0) {
+    while (clientSocket->bytesAvailable() > 0) {
         QByteArray data = clientSocket->readAll();
         QString request = QString::fromUtf8(data).trimmed();
+        qintptr desc = clientSocket->socketDescriptor();
 
-		qDebug() << "Отправленные пользователем ингредиенты:" << request;
-		
-		// парс
-		QString ingredients = parseRequest(request);
+        qDebug().nospace() << "Client " << desc << " sent: " << request;
         
-		// ищем блюдо
-		QString result = findDish(ingredients);
-		
-		// ответ
-        clientSocket -> write(result.toUtf8() + "\n");
+        // Передаем запрос в Обработчик Команд (строго по UML)
+        QString response = FunctionsToServer::parsing(request, desc);
+        
+        clientSocket->write((response + "\n").toUtf8());
     }
-}
-
-QString DishServer::parseRequest(QString data) {
-    return data.toLower().trimmed();
-}
-
-QString DishServer::findDish(QString inputStr) {
-	Storage storage;
-	FilterManager filterManager;
-	Preferences prefs;
-
-	// если клиент прислал слово "помидор", добавим его в нелюбимые, чтобы проверить функциональность
-	if (!inputStr.isEmpty()) {
-		Ingredient disliked {QUuid::createUuid(), inputStr, IngredientCategory::OTHER };
-		prefs.dislikedIngredients.append(disliked);
-	}
-
-	QList<Dish> allDishes = storage.getAllDishes();
-
-	QList<Dish> recommended = filterManager.applyAll(allDishes, prefs);
-
-	if (recommended.isEmpty())
-		return "Нет блюд удовлетворяющих вашим предпочтениям.\n";
-	
-	QString response = "Мы рекомендуем:\n";
-	for (const Dish& dish : recommended) 
-		response += "- " + dish.name + " (" + QString::number(dish.prepTime) + " минут)\n";
-
-	return response;
 }
 
 void DishServer::slotClientDisconnected(){
     QTcpSocket *clientSocket = qobject_cast<QTcpSocket*>(sender());
 
     if(clientSocket) {
-		m_clients.removeOne(clientSocket);
-		qDebug() << "Client disconnected. Total clients:" << m_clients.size();
-		
-		clientSocket -> close();
-        clientSocket -> deleteLater();
+        // Достаем дескриптор обратно
+        qintptr desc = static_cast<qintptr>(clientSocket->property("descriptor").toULongLong());
+        qDebug() << "Client disconnected. Descriptor:" << desc;
+        
+        // Вызываем правильный Синглтон из UML
+        DB_Singleton::getInstance()->clear_socket_id(desc);
+        
+        m_clients.remove(desc);
+        clientSocket->deleteLater();
     }
 }

@@ -19,12 +19,8 @@ public slots:
     void slotClientDisconnected();
     void slotServerRead();
 private:
-    QString parseRequest(QString data);
-    QString findDish(QString ingredients);
-    
 	QTcpServer * mTcpServer;
-    
-	QList<QTcpSocket*> m_clients;
+	QMap<qintptr, QTcpSocket*> m_clients;
 };
 
 #endif // DISHSERVER_H
