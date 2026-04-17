@@ -5,6 +5,9 @@ RUN apt-get update
 RUN apt-get install qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools -y
 RUN apt-get install build-essential -y
 WORKDIR /root/server/
-COPY *.cpp *.h *.pro ./
+COPY src/ ./src/
+COPY include/ ./include/
+COPY data/ ./data/
+COPY *.pro ./
 RUN qmake HappyMeals.pro && make
 ENTRYPOINT ["./HappyMeals"]

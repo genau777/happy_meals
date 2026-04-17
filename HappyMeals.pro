@@ -1,12 +1,39 @@
-QT += network sql
-CONFIG += c++11 console
-CONFIG -= app_bundle
+QT += network sql widgets
+CONFIG += c++11
+CONFIG -= console
 DEFINES += QT_DEPRECATED_WARNINGS
 
 TARGET = HappyMeals
 
-SOURCES += main.cpp dishserver.cpp storage.cpp filters.cpp db_singleton.cpp functionstoserver.cpp usermanager.cpp dishmanager.cpp
-HEADERS += dishserver.h models.h storage.h filters.h db_singleton.h functionstoserver.h usermanager.h dishmanager.h
+INCLUDEPATH += include
+
+SOURCES += src/main.cpp \
+           src/dishserver.cpp \
+           src/storage.cpp \
+           src/filters.cpp \
+           src/db_singleton.cpp \
+           src/functionstoserver.cpp \
+           src/usermanager.cpp \
+           src/dishmanager.cpp \
+           src/clientapi.cpp \
+           src/clientsessionmanager.cpp \
+           src/mainwindow.cpp \
+           src/ingredientsscreen.cpp
+
+HEADERS += include/dishserver.h \
+           include/models.h \
+           include/storage.h \
+           include/filters.h \
+           include/db_singleton.h \
+           include/functionstoserver.h \
+           include/usermanager.h \
+           include/dishmanager.h \
+           include/clientapi.h \
+           include/clientsessionmanager.h \
+           include/mainwindow.h \
+           include/ingredientsscreen.h
+
+FORMS += mainwindow.ui
 
 qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
