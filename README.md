@@ -1,4 +1,17 @@
 # HappyMeals
+# Git Workflow
+
+## Step 1
+git init
+
+## Step 2
+git add .
+
+## Step 3
+git commit -m "First commit"
+
+## Step 4
+git push origin main
 
 Приложение на C++ c фреймворком Qt и Docker для подбора блюд на основе предпочтений пользователя.
 
