@@ -141,3 +141,24 @@ get_stat
 - Лосось на гриле (японская, 15 мин)
 - Стейк (любая, 12 мин)
 - Картофельное пюре (русская, 20 мин)
+## Branches
+
+### Create branch
+```bash
+git checkout -b feature-menu
+```
+
+### Switch branch
+```bash
+git checkout main
+```
+
+### Merge branch
+```bash
+git merge feature-menu
+```
+
+### Push branch
+```bash
+git push origin feature-menu
+```
