@@ -1,0 +1,126 @@
+# ============================================================
+# Конфигурационный файл Doxygen для проекта HappyMeals
+# ============================================================
+
+# Название проекта
+PROJECT_NAME           = "HappyMeals"
+
+# Краткое описание проекта
+PROJECT_BRIEF          = "Приложение для подбора блюд и работы с избранными рецептами"
+
+# Язык интерфейса создаваемой документации
+OUTPUT_LANGUAGE        = Russian
+
+# Папка, куда будет сохранена документация
+OUTPUT_DIRECTORY       = docs
+
+# Файлы и папки, которые Doxygen должен анализировать
+INPUT                  = src include README.md TESTING_GUIDE.md
+
+# Рекурсивный обход папок
+RECURSIVE              = YES
+
+# Типы файлов, которые нужно включить в документацию
+FILE_PATTERNS          = *.h *.cpp *.md
+
+# Что не нужно включать в документацию
+EXCLUDE                = build docs .git
+
+# Исключение автоматически сгенерированных файлов Qt
+EXCLUDE_PATTERNS       = */moc_* */ui_*.h */qrc_* */Makefile
+
+# Извлекать информацию обо всех классах, функциях и файлах
+EXTRACT_ALL            = YES
+
+# Показывать private-методы и поля
+EXTRACT_PRIVATE        = YES
+
+# Показывать static-методы и поля
+EXTRACT_STATIC         = YES
+
+# Генерировать HTML-документацию
+GENERATE_HTML          = YES
+
+# Папка HTML-документации внутри OUTPUT_DIRECTORY
+HTML_OUTPUT            = html
+
+# Отключить генерацию LaTeX-документации
+GENERATE_LATEX         = NO
+
+# Отключить генерацию XML-документации
+GENERATE_XML           = NO
+
+# Не показывать полные абсолютные пути к файлам
+FULL_PATH_NAMES        = NO
+
+# Убрать из путей корневую папку проекта
+STRIP_FROM_PATH        = /Users/daniil/Desktop/TIMP
+
+# Показывать сообщения во время генерации
+QUIET                  = NO
+
+# Показывать предупреждения
+WARNINGS               = YES
+
+# Не ругаться на отсутствие комментариев у каждой функции
+WARN_IF_UNDOCUMENTED   = NO
+
+# Показывать ошибки в Doxygen-комментариях
+WARN_IF_DOC_ERROR      = YES
+
+# Включить просмотр исходного кода в документации
+SOURCE_BROWSER         = YES
+
+# Показывать исходный код прямо на страницах документации
+INLINE_SOURCES         = YES
+
+# Показывать, где используется функция или класс
+REFERENCED_BY_RELATION = YES
+
+# Показывать, какие функции или классы использует выбранный элемент
+REFERENCES_RELATION    = YES
+
+# Использовать Graphviz для построения диаграмм
+HAVE_DOT               = YES
+
+# Генерировать диаграммы классов
+CLASS_DIAGRAMS         = YES
+
+# Использовать UML-подобный вид диаграмм
+UML_LOOK               = YES
+
+# Генерировать граф вызовов функций
+CALL_GRAPH             = YES
+
+# Генерировать граф вызывающих функций
+CALLER_GRAPH           = YES
+
+# Показывать графическую иерархию классов
+GRAPHICAL_HIERARCHY    = YES
+
+# Показывать структуру папок проекта
+DIRECTORY_GRAPH        = YES
+
+# Формат изображений для графов
+DOT_IMAGE_FORMAT       = png
+
+# Не использовать интерактивный SVG
+INTERACTIVE_SVG        = NO
+
+# Сортировать документацию по членам классов
+SORT_MEMBER_DOCS       = YES
+
+# Сортировать краткие описания
+SORT_BRIEF_DOCS        = YES
+
+# Включить дерево навигации слева
+GENERATE_TREEVIEW      = YES
+
+# Не отключать индекс
+DISABLE_INDEX          = NO
+
+# Поддержка Markdown-файлов
+MARKDOWN_SUPPORT       = YES
+
+# Автоматическое создание ссылок
+AUTOLINK_SUPPORT       = YES
