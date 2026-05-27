@@ -131,7 +131,14 @@ QJsonObject ClientApi::sendJsonCommand(const QJsonObject& request)
         sock->readAll();
     }
 
-    QByteArray payload = QJsonDocument(request).toJson(QJsonDocument::Compact);
+    QJsonObject payloadObject = request;
+    QString command = payloadObject.value("command").toString();
+
+    if (!currentLogin.isEmpty() && command != "auth" && command != "reg") {
+        payloadObject["login"] = currentLogin;
+    }
+
+    QByteArray payload = QJsonDocument(payloadObject).toJson(QJsonDocument::Compact);
     payload.append('\n');
     sock->write(payload);
 
@@ -273,9 +280,13 @@ QString ClientApi::loginUser(const QString& login,
         {"password", password}
     });
 
-    return response.value("ok").toBool()
-               ? "OK:" + response.value("message").toString()
-               : "ERROR:" + response.value("message").toString();
+    if (response.value("ok").toBool()) {
+        currentLogin = login.trimmed();
+        return "OK:" + response.value("message").toString();
+    }
+
+    currentLogin.clear();
+    return "ERROR:" + response.value("message").toString();
 }
 
 ///
@@ -353,13 +364,21 @@ QStringList ClientApi::findDishes(const QStringList& excludedIngredients,
         typeArray.append(dishType);
     }
 
+    QString summary = QString("Исключить: %1; кухня: %2; тип: %3; время до %4 мин; сложность: %5")
+                          .arg(excludedIngredients.isEmpty() ? "любые ингредиенты" : excludedIngredients.join(", "))
+                          .arg(cuisine.trimmed().isEmpty() ? "любая" : cuisine.trimmed())
+                          .arg(type.trimmed().isEmpty() ? "любой" : type.trimmed())
+                          .arg(maxTime)
+                          .arg(maxComplexity <= 0 || maxComplexity >= 3 ? "любая" : (maxComplexity == 1 ? "легко" : "средне"));
+
     QJsonObject response = sendJsonCommand({
         {"command", "get_dish"},
         {"excludedIngredients", excludedArray},
         {"cuisines", cuisineArray},
         {"dishTypes", typeArray},
         {"maxTime", maxTime},
-        {"maxComplexity", maxComplexity}
+        {"maxComplexity", maxComplexity},
+        {"summary", summary}
     });
 
     if (!response.value("ok").toBool()) {

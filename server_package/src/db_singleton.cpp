@@ -4,6 +4,34 @@
 #include <QDir>
 #include <QtGlobal>
 
+namespace {
+QString prettySearchSummary(const QString& raw)
+{
+    if (!raw.startsWith("ingredients=")) {
+        return raw;
+    }
+
+    QMap<QString, QString> values;
+    for (const QString& part : raw.split(';')) {
+        int eq = part.indexOf('=');
+        if (eq > 0) {
+            values[part.left(eq).trimmed()] = part.mid(eq + 1).trimmed();
+        }
+    }
+
+    auto readable = [](const QString& value, const QString& fallback) {
+        return value.isEmpty() || value == "any" ? fallback : value;
+    };
+
+    return QString("Исключить: %1; кухня: %2; тип: %3; время до %4 мин; сложность: %5")
+        .arg(readable(values.value("ingredients"), "любые ингредиенты"))
+        .arg(readable(values.value("cuisines"), "любая"))
+        .arg(readable(values.value("type"), "любой"))
+        .arg(readable(values.value("maxTime"), "любое"))
+        .arg(readable(values.value("complexity"), "любая"));
+}
+}
+
 DB_Singleton *DB_Singleton::instance = nullptr;
 DB_SingletonDestroyer DB_Singleton::destroyer;
 
@@ -53,8 +81,8 @@ DB_Singleton::DB_Singleton()
                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
                "login VARCHAR(50) UNIQUE NOT NULL, "
                "password VARCHAR(255) NOT NULL, "
-               "email VARCHAR(100), "
-               "socket_id VARCHAR(20))");
+               "email VARCHAR(100))");
+    query.exec("ALTER TABLE users DROP COLUMN socket_id");
 
     query.exec("CREATE TABLE IF NOT EXISTS history ("
                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
@@ -113,6 +141,7 @@ DB_Singleton* DB_Singleton::getInstance()
 ///
 bool DB_Singleton::auth(QString login, QString pass, qintptr socketId)
 {
+    Q_UNUSED(socketId);
     login = login.trimmed();
 
     QSqlQuery query(db);
@@ -121,15 +150,18 @@ bool DB_Singleton::auth(QString login, QString pass, qintptr socketId)
     query.bindValue(":pass", pass);
 
     if (query.exec() && query.next()) {
-        QSqlQuery update(db);
-        update.prepare("UPDATE users SET socket_id = :sid WHERE login = :login");
-        update.bindValue(":sid", QString::number(socketId));
-        update.bindValue(":login", login);
-        update.exec();
         return true;
     }
 
     return false;
+}
+
+bool DB_Singleton::userExists(QString login)
+{
+    QSqlQuery query(db);
+    query.prepare("SELECT id FROM users WHERE login = :login");
+    query.bindValue(":login", login.trimmed());
+    return query.exec() && query.next();
 }
 
 ///
@@ -142,6 +174,7 @@ bool DB_Singleton::auth(QString login, QString pass, qintptr socketId)
 ///
 bool DB_Singleton::reg(QString login, QString pass, QString email, qintptr socketId)
 {
+    Q_UNUSED(socketId);
     login = login.trimmed();
     email = email.trimmed();
 
@@ -154,12 +187,11 @@ bool DB_Singleton::reg(QString login, QString pass, QString email, qintptr socke
     }
 
     QSqlQuery insert(db);
-    insert.prepare("INSERT INTO users (login, password, email, socket_id) "
-                   "VALUES (:login, :pass, :email, :sid)");
+    insert.prepare("INSERT INTO users (login, password, email) "
+                   "VALUES (:login, :pass, :email)");
     insert.bindValue(":login", login);
     insert.bindValue(":pass", pass);
     insert.bindValue(":email", email);
-    insert.bindValue(":sid", QString::number(socketId));
 
     return insert.exec();
 }
@@ -170,10 +202,7 @@ bool DB_Singleton::reg(QString login, QString pass, QString email, qintptr socke
 ///
 void DB_Singleton::clear_socket_id(qintptr socketId)
 {
-    QSqlQuery query(db);
-    query.prepare("UPDATE users SET socket_id = NULL WHERE socket_id = :sid");
-    query.bindValue(":sid", QString::number(socketId));
-    query.exec();
+    Q_UNUSED(socketId);
 }
 
 ///
@@ -183,9 +212,15 @@ void DB_Singleton::clear_socket_id(qintptr socketId)
 ///
 void DB_Singleton::log_search_request(qintptr socketId, QString ingredient)
 {
+    Q_UNUSED(socketId);
+    Q_UNUSED(ingredient);
+}
+
+void DB_Singleton::log_search_for_user(QString login, QString summary)
+{
     QSqlQuery userQuery(db);
-    userQuery.prepare("SELECT id FROM users WHERE socket_id = :sid");
-    userQuery.bindValue(":sid", QString::number(socketId));
+    userQuery.prepare("SELECT id FROM users WHERE login = :login");
+    userQuery.bindValue(":login", login.trimmed());
 
     if (userQuery.exec() && userQuery.next()) {
         int userId = userQuery.value(0).toInt();
@@ -194,12 +229,18 @@ void DB_Singleton::log_search_request(qintptr socketId, QString ingredient)
         insert.prepare("INSERT INTO history (user_id, ingredient, created_at) "
                        "VALUES (:uid, :ingr, datetime('now', 'localtime'))");
         insert.bindValue(":uid", userId);
-        insert.bindValue(":ingr", ingredient);
+        insert.bindValue(":ingr", summary);
         insert.exec();
     }
 }
 
 QStringList DB_Singleton::get_search_history(qintptr socketId)
+{
+    Q_UNUSED(socketId);
+    return {};
+}
+
+QStringList DB_Singleton::get_search_history_for_user(QString login)
 {
     QStringList history;
 
@@ -207,14 +248,14 @@ QStringList DB_Singleton::get_search_history(qintptr socketId)
     query.prepare("SELECT h.ingredient, COALESCE(h.created_at, '') "
                   "FROM users u "
                   "JOIN history h ON u.id = h.user_id "
-                  "WHERE u.socket_id = :sid "
+                  "WHERE u.login = :login "
                   "ORDER BY h.id DESC "
                   "LIMIT 30");
-    query.bindValue(":sid", QString::number(socketId));
+    query.bindValue(":login", login.trimmed());
 
     if (query.exec()) {
         while (query.next()) {
-            QString text = query.value(0).toString();
+            QString text = prettySearchSummary(query.value(0).toString());
             QString createdAt = query.value(1).toString();
             history.append(createdAt.isEmpty() ? text : createdAt + " | " + text);
         }
@@ -230,13 +271,19 @@ QStringList DB_Singleton::get_search_history(qintptr socketId)
 ///
 QString DB_Singleton::get_stat(qintptr socketId)
 {
+    Q_UNUSED(socketId);
+    return "ERROR:Вы не авторизованы";
+}
+
+QString DB_Singleton::get_stat_for_user(QString login)
+{
     QSqlQuery query(db);
     query.prepare("SELECT u.login, COUNT(h.id) "
                   "FROM users u "
                   "LEFT JOIN history h ON u.id = h.user_id "
-                  "WHERE u.socket_id = :sid "
+                  "WHERE u.login = :login "
                   "GROUP BY u.id");
-    query.bindValue(":sid", QString::number(socketId));
+    query.bindValue(":login", login.trimmed());
 
     if (query.exec() && query.next()) {
         QString login = query.value(0).toString();
@@ -246,8 +293,8 @@ QString DB_Singleton::get_stat(qintptr socketId)
         favQuery.prepare("SELECT COUNT(f.id) "
                          "FROM users u "
                          "LEFT JOIN favorites f ON u.id = f.user_id "
-                         "WHERE u.socket_id = :sid");
-        favQuery.bindValue(":sid", QString::number(socketId));
+                         "WHERE u.login = :login");
+        favQuery.bindValue(":login", login.trimmed());
         favQuery.exec();
         int favorites = favQuery.next() ? favQuery.value(0).toInt() : 0;
 
@@ -257,7 +304,7 @@ QString DB_Singleton::get_stat(qintptr socketId)
             .arg(favorites);
     }
 
-    return "ERROR:Вы не авторизованы";
+    return "ERROR:Пользователь не найден";
 }
 
 ///

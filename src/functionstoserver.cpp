@@ -33,6 +33,7 @@ QString responseMessage(const QString& response)
 QString processJsonRequest(const QJsonObject& request, qintptr socketId)
 {
     QString command = request.value("command").toString().trimmed().toLower();
+    QString login = request.value("login").toString().trimmed();
     QString response;
 
     if (command == "auth") {
@@ -66,7 +67,9 @@ QString processJsonRequest(const QJsonObject& request, qintptr socketId)
             cuisines.join(','),
             QString::number(request.value("maxTime").toInt()),
             dishTypes.join(','),
-            QString::number(request.value("maxComplexity").toInt())
+            QString::number(request.value("maxComplexity").toInt()),
+            login,
+            request.value("summary").toString()
         }, socketId);
         if (!response.startsWith("OK:")) {
             return jsonResponse(false, responseMessage(response));
@@ -94,12 +97,12 @@ QString processJsonRequest(const QJsonObject& request, qintptr socketId)
     }
 
     if (command == "get_stat") {
-        response = UserManager::get_stat({}, socketId);
+        response = UserManager::get_stat({login}, socketId);
         return jsonResponse(response.startsWith("OK:"), responseMessage(response));
     }
 
     if (command == "get_favorites") {
-        response = UserManager::get_favorites({}, socketId);
+        response = UserManager::get_favorites({login}, socketId);
         QJsonArray favorites;
 
         if (response.startsWith("OK:")) {
@@ -113,11 +116,11 @@ QString processJsonRequest(const QJsonObject& request, qintptr socketId)
     }
 
     if (command == "get_history") {
-        response = UserManager::get_history({}, socketId);
+        response = UserManager::get_history({login}, socketId);
         QJsonArray history;
 
         if (response.startsWith("OK:")) {
-            for (const QString& item : response.mid(3).split('|')) {
+            for (const QString& item : response.mid(3).split(QChar(0x1F))) {
                 QString trimmed = item.trimmed();
                 if (!trimmed.isEmpty()) history.append(trimmed);
             }
@@ -127,12 +130,12 @@ QString processJsonRequest(const QJsonObject& request, qintptr socketId)
     }
 
     if (command == "add_favorite") {
-        response = UserManager::add_favorite({request.value("name").toString()}, socketId);
+        response = UserManager::add_favorite({login, request.value("name").toString()}, socketId);
         return jsonResponse(response.startsWith("OK:"), responseMessage(response));
     }
 
     if (command == "remove_favorite") {
-        response = UserManager::remove_favorite({request.value("name").toString()}, socketId);
+        response = UserManager::remove_favorite({login, request.value("name").toString()}, socketId);
         return jsonResponse(response.startsWith("OK:"), responseMessage(response));
     }
 

@@ -100,6 +100,7 @@ public:
     /// \return true, если авторизация успешна, иначе false.
     ///
     bool auth(QString login, QString pass, qintptr socketId);
+    bool userExists(QString login);
 
     ///
     /// \brief Регистрирует нового пользователя.
@@ -123,7 +124,9 @@ public:
     /// \param ingredient Ингредиент или поисковая строка.
     ///
     void log_search_request(qintptr socketId, QString ingredient);
+    void log_search_for_user(QString login, QString summary);
     QStringList get_search_history(qintptr socketId);
+    QStringList get_search_history_for_user(QString login);
 
     ///
     /// \brief Сохраняет поисковый запрос пользователя по логину.
@@ -138,6 +141,7 @@ public:
     /// \return Строка со статистикой или сообщением об ошибке.
     ///
     QString get_stat(qintptr socketId);
+    QString get_stat_for_user(QString login);
 
     ///
     /// \brief Возвращает статистику пользователя по логину.

@@ -55,6 +55,7 @@ private:
     QTcpSocket* sock;                      ///< Сокет для подключения к серверу.
     QString serverHost;
     quint16 serverPort;
+    QString currentLogin;
 
     QString sendCommand(const QString& command);
     QJsonObject sendJsonCommand(const QJsonObject& request);

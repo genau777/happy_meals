@@ -18,16 +18,23 @@ QString DishManager::get_dish(const QStringList& params, qintptr socketId)
     int maxTime = params.size() > 2 ? params[2].toInt() : 0;
     QString typeStr = params.size() > 3 ? params[3].trimmed() : "";
     int maxComplexity = params.size() > 4 ? params[4].toInt() : 0;
+    QString login = params.size() > 5 ? params[5].trimmed() : "";
+    QString summary = params.size() > 6 ? params[6].trimmed() : "";
 
-    DB_Singleton::getInstance()->log_search_request(
-        socketId,
-        QString("ingredients=%1; cuisines=%2; type=%3; maxTime=%4; complexity=%5")
+    if (summary.isEmpty()) {
+        summary = QString("Исключить: %1; кухня: %2; тип: %3; время до %4 мин; сложность: %5")
             .arg(ingredientsStr.isEmpty() ? "any" : ingredientsStr)
             .arg(cuisinesStr.isEmpty() ? "any" : cuisinesStr)
             .arg(typeStr.isEmpty() ? "any" : typeStr)
             .arg(maxTime > 0 ? QString::number(maxTime) : "any")
-            .arg(maxComplexity > 0 ? QString::number(maxComplexity) : "any")
-        );
+            .arg(maxComplexity > 0 ? QString::number(maxComplexity) : "any");
+    }
+
+    if (!login.isEmpty()) {
+        DB_Singleton::getInstance()->log_search_for_user(login, summary);
+    } else {
+        DB_Singleton::getInstance()->log_search_request(socketId, summary);
+    }
 
     QStringList excludedIngredients;
 

@@ -69,32 +69,40 @@ QString UserManager::reg(const QStringList& params, qintptr socketId) {
 /// \return Строка со статистикой пользователя или сообщение об ошибке.
 ///
 QString UserManager::get_stat(const QStringList& params, qintptr socketId) {
-    Q_UNUSED(params);
-    QString stat = DB_Singleton::getInstance()->get_stat(socketId);
+    QString login = params.value(0).trimmed();
+    QString stat = login.isEmpty()
+                       ? DB_Singleton::getInstance()->get_stat(socketId)
+                       : DB_Singleton::getInstance()->get_stat_for_user(login);
     if (stat.startsWith("ERROR")) return stat;
     return "OK:" + stat;
 }
 
 QString UserManager::add_favorite(const QStringList& params, qintptr socketId) {
-    if (params.isEmpty()) return "ERROR:Формат должен быть add_favorite:dishName";
-    return DB_Singleton::getInstance()->addFavorite(socketId, params[0].trimmed())
+    if (params.size() < 2) return "ERROR:Формат должен быть add_favorite:login,dishName";
+    Q_UNUSED(socketId);
+    return DB_Singleton::getInstance()->addFavorite(params[0].trimmed(), params[1].trimmed())
                ? "OK:favorite_added"
                : "ERROR:favorite_not_added";
 }
 
 QString UserManager::remove_favorite(const QStringList& params, qintptr socketId) {
-    if (params.isEmpty()) return "ERROR:Формат должен быть remove_favorite:dishName";
-    return DB_Singleton::getInstance()->removeFavorite(socketId, params[0].trimmed())
+    if (params.size() < 2) return "ERROR:Формат должен быть remove_favorite:login,dishName";
+    Q_UNUSED(socketId);
+    return DB_Singleton::getInstance()->removeFavorite(params[0].trimmed(), params[1].trimmed())
                ? "OK:favorite_removed"
                : "ERROR:favorite_not_removed";
 }
 
 QString UserManager::get_favorites(const QStringList& params, qintptr socketId) {
-    Q_UNUSED(params);
-    return "OK:" + DB_Singleton::getInstance()->getFavorites(socketId).join("|");
+    Q_UNUSED(socketId);
+    QString login = params.value(0).trimmed();
+    if (login.isEmpty()) return "ERROR:Вы не авторизованы";
+    return "OK:" + DB_Singleton::getInstance()->getFavorites(login).join("|");
 }
 
 QString UserManager::get_history(const QStringList& params, qintptr socketId) {
-    Q_UNUSED(params);
-    return "OK:" + DB_Singleton::getInstance()->get_search_history(socketId).join("|");
+    Q_UNUSED(socketId);
+    QString login = params.value(0).trimmed();
+    if (login.isEmpty()) return "ERROR:Вы не авторизованы";
+    return "OK:" + DB_Singleton::getInstance()->get_search_history_for_user(login).join(QString(QChar(0x1F)));
 }
