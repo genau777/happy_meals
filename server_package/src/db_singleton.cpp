@@ -96,6 +96,13 @@ DB_Singleton::DB_Singleton()
                "dish_name VARCHAR(100), "
                "UNIQUE(user_id, dish_name))");
 
+    query.exec("CREATE TABLE IF NOT EXISTS user_sessions ("
+               "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+               "user_id INTEGER NOT NULL, "
+               "started_at TEXT NOT NULL, "
+               "ended_at TEXT, "
+               "duration_seconds INTEGER DEFAULT 0)");
+
     dishesDb = QSqlDatabase::addDatabase("QSQLITE", "dishes_connection");
     dishesDb.setDatabaseName(QDir(dataPath).filePath("dishes.sqlite"));
 
@@ -139,9 +146,8 @@ DB_Singleton* DB_Singleton::getInstance()
 /// \param socketId Идентификатор клиентского подключения.
 /// \return true, если авторизация успешна, иначе false.
 ///
-bool DB_Singleton::auth(QString login, QString pass, qintptr socketId)
+int DB_Singleton::authUserId(QString login, QString pass)
 {
-    Q_UNUSED(socketId);
     login = login.trimmed();
 
     QSqlQuery query(db);
@@ -150,10 +156,10 @@ bool DB_Singleton::auth(QString login, QString pass, qintptr socketId)
     query.bindValue(":pass", pass);
 
     if (query.exec() && query.next()) {
-        return true;
+        return query.value(0).toInt();
     }
 
-    return false;
+    return 0;
 }
 
 bool DB_Singleton::userExists(QString login)
@@ -172,9 +178,8 @@ bool DB_Singleton::userExists(QString login)
 /// \param socketId Идентификатор клиентского подключения.
 /// \return true, если регистрация успешна, иначе false.
 ///
-bool DB_Singleton::reg(QString login, QString pass, QString email, qintptr socketId)
+bool DB_Singleton::reg(QString login, QString pass, QString email)
 {
-    Q_UNUSED(socketId);
     login = login.trimmed();
     email = email.trimmed();
 
@@ -200,22 +205,6 @@ bool DB_Singleton::reg(QString login, QString pass, QString email, qintptr socke
 /// \brief Очищает идентификатор сокета пользователя.
 /// \param socketId Идентификатор клиентского подключения.
 ///
-void DB_Singleton::clear_socket_id(qintptr socketId)
-{
-    Q_UNUSED(socketId);
-}
-
-///
-/// \brief Записывает поисковый запрос пользователя в историю.
-/// \param socketId Идентификатор клиентского подключения.
-/// \param ingredient Ингредиент или поисковая строка.
-///
-void DB_Singleton::log_search_request(qintptr socketId, QString ingredient)
-{
-    Q_UNUSED(socketId);
-    Q_UNUSED(ingredient);
-}
-
 void DB_Singleton::log_search_for_user(QString login, QString summary)
 {
     QSqlQuery userQuery(db);
@@ -223,88 +212,173 @@ void DB_Singleton::log_search_for_user(QString login, QString summary)
     userQuery.bindValue(":login", login.trimmed());
 
     if (userQuery.exec() && userQuery.next()) {
-        int userId = userQuery.value(0).toInt();
-
-        QSqlQuery insert(db);
-        insert.prepare("INSERT INTO history (user_id, ingredient, created_at) "
-                       "VALUES (:uid, :ingr, datetime('now', 'localtime'))");
-        insert.bindValue(":uid", userId);
-        insert.bindValue(":ingr", summary);
-        insert.exec();
+        log_search_for_user_id(userQuery.value(0).toInt(), summary);
     }
 }
 
-QStringList DB_Singleton::get_search_history(qintptr socketId)
+void DB_Singleton::log_search_for_user_id(int userId, QString summary)
 {
-    Q_UNUSED(socketId);
-    return {};
+    summary = prettySearchSummary(summary.trimmed());
+    if (userId <= 0 || summary.isEmpty()) {
+        return;
+    }
+
+    QSqlQuery lastQuery(db);
+    lastQuery.prepare("SELECT ingredient FROM history "
+                      "WHERE user_id = :uid "
+                      "ORDER BY id DESC LIMIT 1");
+    lastQuery.bindValue(":uid", userId);
+
+    if (lastQuery.exec() && lastQuery.next()
+        && prettySearchSummary(lastQuery.value(0).toString()) == summary) {
+        return;
+    }
+
+    QSqlQuery insert(db);
+    insert.prepare("INSERT INTO history (user_id, ingredient, created_at) "
+                   "VALUES (:uid, :ingr, datetime('now', 'localtime'))");
+    insert.bindValue(":uid", userId);
+    insert.bindValue(":ingr", summary);
+    insert.exec();
 }
 
 QStringList DB_Singleton::get_search_history_for_user(QString login)
 {
-    QStringList history;
-
     QSqlQuery query(db);
-    query.prepare("SELECT h.ingredient, COALESCE(h.created_at, '') "
-                  "FROM users u "
-                  "JOIN history h ON u.id = h.user_id "
-                  "WHERE u.login = :login "
-                  "ORDER BY h.id DESC "
-                  "LIMIT 30");
+    query.prepare("SELECT id FROM users WHERE login = :login");
     query.bindValue(":login", login.trimmed());
 
+    if (query.exec() && query.next()) {
+        return get_search_history_for_user_id(query.value(0).toInt());
+    }
+
+    return {};
+}
+
+QStringList DB_Singleton::get_search_history_for_user_id(int userId)
+{
+    QStringList history;
+    QString previous;
+
+    QSqlQuery query(db);
+    query.prepare("SELECT ingredient, COALESCE(created_at, '') "
+                  "FROM history "
+                  "WHERE user_id = :uid "
+                  "ORDER BY id DESC "
+                  "LIMIT 50");
+    query.bindValue(":uid", userId);
+
     if (query.exec()) {
-        while (query.next()) {
+        while (query.next() && history.size() < 30) {
             QString text = prettySearchSummary(query.value(0).toString());
             QString createdAt = query.value(1).toString();
+
+            if (text.isEmpty() || text == previous) {
+                continue;
+            }
+
             history.append(createdAt.isEmpty() ? text : createdAt + " | " + text);
+            previous = text;
         }
     }
 
     return history;
 }
 
-///
-/// \brief Возвращает статистику пользователя по socketId.
-/// \param socketId Идентификатор клиентского подключения.
-/// \return Строка со статистикой или сообщение об ошибке.
-///
-QString DB_Singleton::get_stat(qintptr socketId)
-{
-    Q_UNUSED(socketId);
-    return "ERROR:Вы не авторизованы";
-}
-
 QString DB_Singleton::get_stat_for_user(QString login)
 {
     QSqlQuery query(db);
-    query.prepare("SELECT u.login, COUNT(h.id) "
-                  "FROM users u "
-                  "LEFT JOIN history h ON u.id = h.user_id "
-                  "WHERE u.login = :login "
-                  "GROUP BY u.id");
+    query.prepare("SELECT id FROM users WHERE login = :login");
     query.bindValue(":login", login.trimmed());
 
     if (query.exec() && query.next()) {
-        QString login = query.value(0).toString();
-        int searches = query.value(1).toInt();
-
-        QSqlQuery favQuery(db);
-        favQuery.prepare("SELECT COUNT(f.id) "
-                         "FROM users u "
-                         "LEFT JOIN favorites f ON u.id = f.user_id "
-                         "WHERE u.login = :login");
-        favQuery.bindValue(":login", login.trimmed());
-        favQuery.exec();
-        int favorites = favQuery.next() ? favQuery.value(0).toInt() : 0;
-
-        return QString("Пользователь: %1\nЗапросов подбора: %2\nИзбранных рецептов: %3")
-            .arg(login)
-            .arg(searches)
-            .arg(favorites);
+        return get_stat_for_user_id(query.value(0).toInt());
     }
 
     return "ERROR:Пользователь не найден";
+}
+
+QString DB_Singleton::get_stat_for_user_id(int userId)
+{
+    QSqlQuery userQuery(db);
+    userQuery.prepare("SELECT login FROM users WHERE id = :uid");
+    userQuery.bindValue(":uid", userId);
+
+    if (!userQuery.exec() || !userQuery.next()) {
+        return "ERROR:Пользователь не найден";
+    }
+
+    QString login = userQuery.value(0).toString();
+
+    QSqlQuery searchQuery(db);
+    searchQuery.prepare("SELECT COUNT(*) FROM history WHERE user_id = :uid");
+    searchQuery.bindValue(":uid", userId);
+    searchQuery.exec();
+    int searches = searchQuery.next() ? searchQuery.value(0).toInt() : 0;
+
+    QSqlQuery favQuery(db);
+    favQuery.prepare("SELECT COUNT(*) FROM favorites WHERE user_id = :uid");
+    favQuery.bindValue(":uid", userId);
+    favQuery.exec();
+    int favorites = favQuery.next() ? favQuery.value(0).toInt() : 0;
+
+    QSqlQuery timeQuery(db);
+    timeQuery.prepare("SELECT COALESCE(SUM("
+                      "CASE "
+                      "WHEN ended_at IS NULL THEN duration_seconds + CAST((julianday(datetime('now', 'localtime')) - julianday(started_at)) * 86400 AS INTEGER) "
+                      "ELSE duration_seconds "
+                      "END), 0) "
+                      "FROM user_sessions WHERE user_id = :uid");
+    timeQuery.bindValue(":uid", userId);
+    timeQuery.exec();
+    int seconds = timeQuery.next() ? timeQuery.value(0).toInt() : 0;
+    int hours = seconds / 3600;
+    int minutes = (seconds % 3600) / 60;
+
+    return QString("Пользователь: %1\nЗапросов подбора: %2\nИзбранных рецептов: %3\nВремя в приложении: %4 ч %5 мин")
+        .arg(login)
+        .arg(searches)
+        .arg(favorites)
+        .arg(hours)
+        .arg(minutes);
+}
+
+int DB_Singleton::startUserSession(int userId)
+{
+    if (userId <= 0) {
+        return 0;
+    }
+
+    endUserSession(userId);
+
+    QSqlQuery insert(db);
+    insert.prepare("INSERT INTO user_sessions (user_id, started_at) "
+                   "VALUES (:uid, datetime('now', 'localtime'))");
+    insert.bindValue(":uid", userId);
+
+    if (!insert.exec()) {
+        return 0;
+    }
+
+    return insert.lastInsertId().toInt();
+}
+
+void DB_Singleton::endUserSession(int userId)
+{
+    if (userId <= 0) {
+        return;
+    }
+
+    QSqlQuery update(db);
+    update.prepare("UPDATE user_sessions "
+                   "SET ended_at = datetime('now', 'localtime'), "
+                   "duration_seconds = CAST((julianday(datetime('now', 'localtime')) - julianday(started_at)) * 86400 AS INTEGER) "
+                   "WHERE id = ("
+                   "SELECT id FROM user_sessions "
+                   "WHERE user_id = :uid AND ended_at IS NULL "
+                   "ORDER BY id DESC LIMIT 1)");
+    update.bindValue(":uid", userId);
+    update.exec();
 }
 
 ///
@@ -381,17 +455,18 @@ bool DB_Singleton::addFavorite(QString username, QString dishName)
     return false;
 }
 
-bool DB_Singleton::addFavorite(qintptr socketId, QString dishName)
+bool DB_Singleton::addFavorite(int userId, QString dishName)
 {
-    QSqlQuery userQuery(db);
-    userQuery.prepare("SELECT login FROM users WHERE socket_id = :sid");
-    userQuery.bindValue(":sid", QString::number(socketId));
-
-    if (userQuery.exec() && userQuery.next()) {
-        return addFavorite(userQuery.value(0).toString(), dishName);
+    if (userId <= 0 || dishName.trimmed().isEmpty()) {
+        return false;
     }
 
-    return false;
+    QSqlQuery insert(db);
+    insert.prepare("INSERT OR IGNORE INTO favorites (user_id, dish_name) "
+                   "VALUES (:uid, :dish)");
+    insert.bindValue(":uid", userId);
+    insert.bindValue(":dish", dishName.trimmed());
+    return insert.exec();
 }
 
 ///
@@ -420,17 +495,17 @@ bool DB_Singleton::removeFavorite(QString username, QString dishName)
     return false;
 }
 
-bool DB_Singleton::removeFavorite(qintptr socketId, QString dishName)
+bool DB_Singleton::removeFavorite(int userId, QString dishName)
 {
-    QSqlQuery userQuery(db);
-    userQuery.prepare("SELECT login FROM users WHERE socket_id = :sid");
-    userQuery.bindValue(":sid", QString::number(socketId));
-
-    if (userQuery.exec() && userQuery.next()) {
-        return removeFavorite(userQuery.value(0).toString(), dishName);
+    if (userId <= 0 || dishName.trimmed().isEmpty()) {
+        return false;
     }
 
-    return false;
+    QSqlQuery deleteQuery(db);
+    deleteQuery.prepare("DELETE FROM favorites WHERE user_id = :uid AND dish_name = :dish");
+    deleteQuery.bindValue(":uid", userId);
+    deleteQuery.bindValue(":dish", dishName.trimmed());
+    return deleteQuery.exec();
 }
 
 ///
@@ -463,17 +538,21 @@ QStringList DB_Singleton::getFavorites(QString username)
     return favorites;
 }
 
-QStringList DB_Singleton::getFavorites(qintptr socketId)
+QStringList DB_Singleton::getFavorites(int userId)
 {
-    QSqlQuery userQuery(db);
-    userQuery.prepare("SELECT login FROM users WHERE socket_id = :sid");
-    userQuery.bindValue(":sid", QString::number(socketId));
+    QStringList favorites;
 
-    if (userQuery.exec() && userQuery.next()) {
-        return getFavorites(userQuery.value(0).toString());
+    QSqlQuery favQuery(db);
+    favQuery.prepare("SELECT dish_name FROM favorites WHERE user_id = :uid ORDER BY dish_name");
+    favQuery.bindValue(":uid", userId);
+
+    if (favQuery.exec()) {
+        while (favQuery.next()) {
+            favorites << favQuery.value(0).toString();
+        }
     }
 
-    return {};
+    return favorites;
 }
 
 ///

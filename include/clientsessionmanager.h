@@ -112,6 +112,10 @@ public:
     /// \param pass Пароль пользователя.
     ///
     void requestLogin(const QString &log, const QString &pass) {
+        if (!currentUser.isEmpty()) {
+            logout();
+        }
+
         QString response = ClientApi::getInstance()->loginUser(log, pass);
         bool success = response.startsWith("OK:");
 
@@ -152,6 +156,13 @@ public:
 
             emit registerResult(false, cleanApiMessage(response));
         }
+    }
+
+    void logout() {
+        ClientApi::getInstance()->logoutUser();
+        currentUser.clear();
+        favoriteTitles.clear();
+        searchHistory.clear();
     }
 
     // --- Статистика ---

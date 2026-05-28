@@ -99,7 +99,7 @@ public:
     /// \param socketId Идентификатор клиентского подключения.
     /// \return true, если авторизация успешна, иначе false.
     ///
-    bool auth(QString login, QString pass, qintptr socketId);
+    int authUserId(QString login, QString pass);
     bool userExists(QString login);
 
     ///
@@ -110,22 +110,16 @@ public:
     /// \param socketId Идентификатор клиентского подключения.
     /// \return true, если регистрация успешна, иначе false.
     ///
-    bool reg(QString login, QString pass, QString email, qintptr socketId);
-
-    ///
-    /// \brief Очищает socket_id пользователя при отключении.
-    /// \param socketId Идентификатор клиентского подключения.
-    ///
-    void clear_socket_id(qintptr socketId);
+    bool reg(QString login, QString pass, QString email);
 
     ///
     /// \brief Сохраняет поисковый запрос пользователя в историю.
     /// \param socketId Идентификатор клиентского подключения.
     /// \param ingredient Ингредиент или поисковая строка.
     ///
-    void log_search_request(qintptr socketId, QString ingredient);
+    void log_search_for_user_id(int userId, QString summary);
     void log_search_for_user(QString login, QString summary);
-    QStringList get_search_history(qintptr socketId);
+    QStringList get_search_history_for_user_id(int userId);
     QStringList get_search_history_for_user(QString login);
 
     ///
@@ -140,8 +134,10 @@ public:
     /// \param socketId Идентификатор клиентского подключения.
     /// \return Строка со статистикой или сообщением об ошибке.
     ///
-    QString get_stat(qintptr socketId);
+    QString get_stat_for_user_id(int userId);
     QString get_stat_for_user(QString login);
+    int startUserSession(int userId);
+    void endUserSession(int userId);
 
     ///
     /// \brief Возвращает статистику пользователя по логину.
@@ -157,7 +153,7 @@ public:
     /// \return true, если блюдо добавлено, иначе false.
     ///
     bool addFavorite(QString username, QString dishName);
-    bool addFavorite(qintptr socketId, QString dishName);
+    bool addFavorite(int userId, QString dishName);
 
     ///
     /// \brief Удаляет блюдо из избранного пользователя.
@@ -166,7 +162,7 @@ public:
     /// \return true, если блюдо удалено, иначе false.
     ///
     bool removeFavorite(QString username, QString dishName);
-    bool removeFavorite(qintptr socketId, QString dishName);
+    bool removeFavorite(int userId, QString dishName);
 
     ///
     /// \brief Возвращает список избранных блюд пользователя.
@@ -174,7 +170,7 @@ public:
     /// \return Список названий избранных блюд.
     ///
     QStringList getFavorites(QString username);
-    QStringList getFavorites(qintptr socketId);
+    QStringList getFavorites(int userId);
 
     ///
     /// \brief Фильтрует блюда по параметрам пользователя.

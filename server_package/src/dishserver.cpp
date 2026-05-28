@@ -85,9 +85,6 @@ void DishServer::slotClientDisconnected(){
         qintptr desc = static_cast<qintptr>(clientSocket->property("descriptor").toULongLong());
         qDebug() << "Client disconnected. Descriptor:" << desc;
 
-        // Вызываем правильный Синглтон из UML
-        DB_Singleton::getInstance()->clear_socket_id(desc);
-
         m_clients.remove(desc);
         clientSocket->deleteLater();
     }

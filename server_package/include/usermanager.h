@@ -43,6 +43,7 @@ public:
     static QString remove_favorite(const QStringList& params, qintptr socketId);
     static QString get_favorites(const QStringList& params, qintptr socketId);
     static QString get_history(const QStringList& params, qintptr socketId);
+    static QString logout(const QStringList& params, qintptr socketId);
 };
 
 #endif // USERMANAGER_H

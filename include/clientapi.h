@@ -56,6 +56,7 @@ private:
     QString serverHost;
     quint16 serverPort;
     QString currentLogin;
+    int currentUserId = 0;
 
     QString sendCommand(const QString& command);
     QJsonObject sendJsonCommand(const QJsonObject& request);
@@ -105,6 +106,7 @@ public:
 
     QString loginUser(const QString& login,
                       const QString& password);
+    void logoutUser();
 
     ///
     /// \brief Выполняет поиск блюд по заданным параметрам.

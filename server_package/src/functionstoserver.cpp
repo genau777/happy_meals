@@ -33,12 +33,19 @@ QString responseMessage(const QString& response)
 QString processJsonRequest(const QJsonObject& request, qintptr socketId)
 {
     QString command = request.value("command").toString().trimmed().toLower();
-    QString login = request.value("login").toString().trimmed();
+    int userId = request.value("userId").toInt();
     QString response;
 
     if (command == "auth") {
         response = UserManager::auth({request.value("login").toString(), request.value("password").toString()}, socketId);
-        return jsonResponse(response.startsWith("OK:"), responseMessage(response));
+        QJsonObject extra;
+        QString message = responseMessage(response);
+        int marker = message.indexOf(";user_id=");
+        if (marker >= 0) {
+            extra["userId"] = message.mid(marker + 9).toInt();
+            message = message.left(marker);
+        }
+        return jsonResponse(response.startsWith("OK:"), message, extra);
     }
 
     if (command == "reg") {
@@ -68,7 +75,7 @@ QString processJsonRequest(const QJsonObject& request, qintptr socketId)
             QString::number(request.value("maxTime").toInt()),
             dishTypes.join(','),
             QString::number(request.value("maxComplexity").toInt()),
-            login,
+            QString::number(userId),
             request.value("summary").toString()
         }, socketId);
         if (!response.startsWith("OK:")) {
@@ -97,12 +104,12 @@ QString processJsonRequest(const QJsonObject& request, qintptr socketId)
     }
 
     if (command == "get_stat") {
-        response = UserManager::get_stat({login}, socketId);
+        response = UserManager::get_stat({QString::number(userId)}, socketId);
         return jsonResponse(response.startsWith("OK:"), responseMessage(response));
     }
 
     if (command == "get_favorites") {
-        response = UserManager::get_favorites({login}, socketId);
+        response = UserManager::get_favorites({QString::number(userId)}, socketId);
         QJsonArray favorites;
 
         if (response.startsWith("OK:")) {
@@ -116,7 +123,7 @@ QString processJsonRequest(const QJsonObject& request, qintptr socketId)
     }
 
     if (command == "get_history") {
-        response = UserManager::get_history({login}, socketId);
+        response = UserManager::get_history({QString::number(userId)}, socketId);
         QJsonArray history;
 
         if (response.startsWith("OK:")) {
@@ -130,12 +137,17 @@ QString processJsonRequest(const QJsonObject& request, qintptr socketId)
     }
 
     if (command == "add_favorite") {
-        response = UserManager::add_favorite({login, request.value("name").toString()}, socketId);
+        response = UserManager::add_favorite({QString::number(userId), request.value("name").toString()}, socketId);
         return jsonResponse(response.startsWith("OK:"), responseMessage(response));
     }
 
     if (command == "remove_favorite") {
-        response = UserManager::remove_favorite({login, request.value("name").toString()}, socketId);
+        response = UserManager::remove_favorite({QString::number(userId), request.value("name").toString()}, socketId);
+        return jsonResponse(response.startsWith("OK:"), responseMessage(response));
+    }
+
+    if (command == "logout") {
+        response = UserManager::logout({QString::number(userId)}, socketId);
         return jsonResponse(response.startsWith("OK:"), responseMessage(response));
     }
 
@@ -191,6 +203,7 @@ QString FunctionsToServer::parsing(const QString &message, qintptr socketId) {
         {"remove_favorite", UserManager::remove_favorite},
         {"get_favorites", UserManager::get_favorites},
         {"get_history", UserManager::get_history},
+        {"logout", UserManager::logout},
         {"get_dish", DishManager::get_dish},
         {"dish_details", DishManager::dish_details}
     };

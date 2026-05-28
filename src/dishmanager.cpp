@@ -13,12 +13,13 @@
 ///
 QString DishManager::get_dish(const QStringList& params, qintptr socketId)
 {
+    Q_UNUSED(socketId);
     QString ingredientsStr = params.size() > 0 ? params[0].trimmed() : "";
     QString cuisinesStr = params.size() > 1 ? params[1].trimmed() : "";
     int maxTime = params.size() > 2 ? params[2].toInt() : 0;
     QString typeStr = params.size() > 3 ? params[3].trimmed() : "";
     int maxComplexity = params.size() > 4 ? params[4].toInt() : 0;
-    QString login = params.size() > 5 ? params[5].trimmed() : "";
+    int userId = params.size() > 5 ? params[5].toInt() : 0;
     QString summary = params.size() > 6 ? params[6].trimmed() : "";
 
     if (summary.isEmpty()) {
@@ -30,10 +31,8 @@ QString DishManager::get_dish(const QStringList& params, qintptr socketId)
             .arg(maxComplexity > 0 ? QString::number(maxComplexity) : "any");
     }
 
-    if (!login.isEmpty()) {
-        DB_Singleton::getInstance()->log_search_for_user(login, summary);
-    } else {
-        DB_Singleton::getInstance()->log_search_request(socketId, summary);
+    if (userId > 0) {
+        DB_Singleton::getInstance()->log_search_for_user_id(userId, summary);
     }
 
     QStringList excludedIngredients;

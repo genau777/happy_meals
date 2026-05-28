@@ -282,7 +282,10 @@ MainWindow::MainWindow(QWidget *parent)
             QMessageBox::warning(this, "Ошибка регистрации", msg);
         }
     });
-    connect(btnLogout, &QPushButton::clicked, [this](){ ui->stackedWidget->setCurrentIndex(0); });
+    connect(btnLogout, &QPushButton::clicked, [this](){
+        ClientSessionManager::instance().logout();
+        ui->stackedWidget->setCurrentIndex(0);
+    });
     connect(btnStartSearch, &QPushButton::clicked, [this](){ ui->stackedWidget->setCurrentIndex(2); });
     connect(btnGoToFavorites, &QPushButton::clicked, [this](){
         updateFavoritesList(); ui->stackedWidget->setCurrentIndex(6);
@@ -456,4 +459,7 @@ void MainWindow::updateStatistics() {
 ///
 /// Освобождает память, занятую объектом пользовательского интерфейса.
 ///
-MainWindow::~MainWindow() { delete ui; }
+MainWindow::~MainWindow() {
+    ClientSessionManager::instance().logout();
+    delete ui;
+}

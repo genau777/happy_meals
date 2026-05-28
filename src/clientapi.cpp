@@ -134,8 +134,8 @@ QJsonObject ClientApi::sendJsonCommand(const QJsonObject& request)
     QJsonObject payloadObject = request;
     QString command = payloadObject.value("command").toString();
 
-    if (!currentLogin.isEmpty() && command != "auth" && command != "reg") {
-        payloadObject["login"] = currentLogin;
+    if (currentUserId > 0 && command != "auth" && command != "reg") {
+        payloadObject["userId"] = currentUserId;
     }
 
     QByteArray payload = QJsonDocument(payloadObject).toJson(QJsonDocument::Compact);
@@ -282,11 +282,23 @@ QString ClientApi::loginUser(const QString& login,
 
     if (response.value("ok").toBool()) {
         currentLogin = login.trimmed();
+        currentUserId = response.value("userId").toInt();
         return "OK:" + response.value("message").toString();
     }
 
     currentLogin.clear();
+    currentUserId = 0;
     return "ERROR:" + response.value("message").toString();
+}
+
+void ClientApi::logoutUser()
+{
+    if (currentUserId > 0) {
+        sendJsonCommand({{"command", "logout"}});
+    }
+
+    currentLogin.clear();
+    currentUserId = 0;
 }
 
 ///
